@@ -18,48 +18,15 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      # Generation lives in tools/generate-index.py so it is testable outside CI
+      # and shares one PyYAML-backed frontmatter parser with the validators.
+      # The previous inline regex parser silently truncated 604/817 descriptions
+      # to their first line for every YAML scalar style except '>'/'|'.
       - name: Regenerate index.json
-        run: |
-          python3 << 'EOF'
-          import os, json, re
-          from datetime import datetime, timezone
-
-          skills_dir = "skills"
-          skills = []
-
-          for skill_name in sorted(os.listdir(skills_dir)):
-              skill_md = os.path.join(skills_dir, skill_name, "SKILL.md")
-              if not os.path.isfile(skill_md):
-                  continue
-              with open(skill_md, "r", encoding="utf-8") as f:
-                  content = f.read()
-              fm_match = re.match(r"^---\n(.*?)\n---", content, re.DOTALL)
-              description = ""
-              if fm_match:
-                  m = re.search(r"^description:\s*(.+)$", fm_match.group(1), re.MULTILINE)
-                  if m:
-                      description = m.group(1).strip().strip('"')
-              skills.append({
-                  "name": skill_name,
-                  "description": description,
-                  "domain": "cybersecurity",
-                  "path": f"skills/{skill_name}"
-              })
-
-          index = {
-              "version": "1.1.0",
-              "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-              "repository": "https://github.com/mukul975/Anthropic-Cybersecurity-Skills",
-              "domain": "cybersecurity",
-              "total_skills": len(skills),
-              "skills": skills
-          }
-
-          with open("index.json", "w", encoding="utf-8") as f:
-              json.dump(index, f, separators=(',', ':'))
-
-          print(f"Updated index.json: {len(skills)} skills")
-          EOF
+        run: python3 tools/generate-index.py
 
       - name: Sync skill count into README and marketplace
         run: |
@@ -80,8 +47,8 @@ jobs:
           with open("README.md", encoding="utf-8") as f:
               readme = f.read()
           readme = re.sub(r"(badge/skills-)\d+", rf"\g<1>{count}", readme)
-          # "754 production-grade", "754 structured", "754 skills", "all 754 skills",
-          # "Scans 754 skill", "contains **754 skills**", BibTeX "{754 structured"
+          # "817 production-grade", "817 structured", "817 skills", "all 817 skills",
+          # "Scans 817 skill", "contains **817 skills**", BibTeX "{817 structured"
           readme = re.sub(r"\b\d+(?=\s+production-grade cybersecurity skills)", str(count), readme)
           readme = re.sub(r"\b\d+(?=\s+structured cybersecurity skills)", str(count), readme)
           readme = re.sub(r"(all\s+)\d+(?=\s+skills)", rf"\g<1>{count}", readme)
